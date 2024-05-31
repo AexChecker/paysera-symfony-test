@@ -1,0 +1,80 @@
+name: symfony-app
+recipe: symfony
+config:
+  webroot: public
+  php: "8.3"
+  via: nginx
+  composer_version: "2.7.6"
+  xdebug: true
+
+services:
+  appserver:
+    config:
+      php: scripts/lando/etc/php.ini
+    scanner: false
+    overrides:
+      environment:
+        PHP_IDE_CONFIG: "serverName=symfony-app.lndo.site"
+        COMPOSE_HTTP_TIMEOUT: 3600
+        PWD: "/app"
+    build:
+      - /app/scripts/lando/bin/appserver.build.sh
+
+tooling:
+  php-cs-fixer:test:
+    service: appserver
+    description: "Run PHP CS Fixer test"
+    cmd:
+      - php /app/vendor/bin/php-cs-fixer fix --dry-run -v
+
+  php-cs-fixer:fix:
+    service: appserver
+    description: "Run PHP CS Fixer fix"
+    cmd:
+      - php /app/vendor/bin/php-cs-fixer fix
+
+  symfony:console:
+    service: appserver
+    description: "Run Symfony Console"
+    cmd:
+      - php /app/bin/console
+
+  symfony:cc:
+    service: appserver
+    description: "Run Symfony cache:clear"
+    cmd:
+      - php /app/bin/console cache:clear
+
+  traditional-task:
+    service: appserver
+    description: "Run Traditional task"
+    cmd:
+      - php /app/bin/console traditional-task:process-deposit-withdrawal
+
+  alternative-task:
+    service: appserver
+    description: "Run alternative task"
+    cmd:
+      - php /app/bin/console alternative-task:process-transactions
+
+  phpunit:
+    service: appserver
+    description: "Run unit tests"
+    cmd:
+      - php /app/vendor/bin/phpunit
+
+  xdebug-on:
+    service: appserver
+    description: "Enable XDebug"
+    user: root
+    cmd:
+      - docker-php-ext-enable xdebug && pkill -o -USR2 php-fpm
+      - tput setaf 2 && echo "Xdebug On" && tput sgr 0
+
+  xdebug-off:
+    service: appserver
+    description: "Disable XDebug"
+    user: root
+    cmd:
+      - rm /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini && pkill -o -USR2 php-fpm
+      - tput setaf 1 && echo "Xdebug Off" && tput sgr 0
